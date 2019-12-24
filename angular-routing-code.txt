@@ -1,0 +1,445 @@
+ng build --base-href /APM/
+
+---------------
+app.module.ts
+
+import { RouterModule } from '@angular/router';
+RouterModule.forRoot([]),
+
+--
+
+[
+      { path: 'welcome', component: WelcomeComponent },    
+      { path: '', redirectTo: 'welcome', pathMatch: 'full' },
+      { path: '**', component: PageNotFoundComponent }
+    ]
+	
+---
+app.component.html
+<router-outlet></router-outlet>
+
+ <a class="nav-link"
+         [routerLink]="['/welcome']">Home</a>
+		 
+		 {useHash : true}
+--
+---------------------------------------
+--------------------------------------
+product.module.ts
+
+import { RouterModule } from '@angular/router';
+RouterModule.forChild([
+      {path:'products', component: ProductListComponent}
+    ])
+	
+app.component.ts
+<a class="nav-link" [routerLink]="['/products']">Product List</a>
+-------
+user.module.ts
+
+import { RouterModule } from '@angular/router';
+ RouterModule.forChild([
+      {path: 'login', component: LoginComponent}
+    ])
+ <a class="nav-link" [routerLink]="['/login']">Log In</a>
+ 
+ login.component.ts
+ 
+ import {Router} from '@angular/router';
+ private router: Router
+ this.router.navigate(['/products'])
+ 
+login.component.html
+ <button class="btn btn-outline-secondary"
+                    type="button"
+                    style="width:80px"
+                    [routerLink]="['/welcome']">
+              Cancel
+            </button>
+			
+app.component.ts
+import {Router} from '@angular/router';
+ private router: Router
+this.router.navigate(['/welcome'])
+----
+app.routing.module.ts
+
+import { NgModule} from '@angular/core'
+import { RouterModule } from '@angular/router';
+import { WelcomeComponent } from './home/welcome.component';
+import { PageNotFoundComponent } from './page-not-found.component';
+@NgModule({
+    imports:[
+        RouterModule.forRoot([
+            { path: 'welcome', component: WelcomeComponent },    
+            { path: '', redirectTo: 'welcome', pathMatch: 'full' },
+            { path: '**', component: PageNotFoundComponent }
+          ])
+    ],
+    exports:[RouterModule]
+})
+export class AppRoutingModule{}
+
+app.module.ts
+
+ AppRoutingModule
+ -----------------------------
+ -------------------------------
+ 
+ product.module.ts
+ 
+ RouterModule.forChild([
+      {path:'products', component: ProductListComponent},
+      {path:'products/:id', component: ProductDetailComponent},
+      {path:'products/:id/edit', component: ProductEditComponent}
+    ])
+	
+product-list.component.ts
+
+<a [routerLink]="['/products', product.id]">
+                {{ product.productName }}
+              </a>
+<button class="btn btn-outline-primary btn-sm"[routerLink]="['/products', product.id, 'edit']">
+                Edit
+              </button>
+			  
+app.component.html
+
+<a class="nav-link" [routerLink]="['/products', '0', 'edit']">Add Product</a>
+--------------------
+product-detail.component.ts
+
+import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router'
+
+export class ProductDetailComponent implements OnInit {
+
+constructor(private productService: ProductService,
+    private activatedRoute: ActivatedRoute) { }
+
+  ngOnInit(): void {
+    const id= +this.activatedRoute.snapshot.paramMap.get('id');
+    this.getProduct(id);
+  }
+  
+ <button class="btn btn-outline-primary"
+                style="width:80px" [routerLink]="['/products', product.id, 'edit']">
+          Edit
+        </button>
+	
+------------------
+
+product-edit.component.ts
+
+import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router'
+
+export class ProductEditComponent implements OnInit {
+
+constructor(private productService: ProductService,
+    private messageService: MessageService,
+    private activatedRoute: ActivatedRoute) { }
+
+  ngOnInit(): void {
+    const id = +this.activatedRoute.snapshot.paramMap.get('id');
+    this.getProduct(id);
+  }
+
+
+ ngOnInit(): void {
+    
+    this.activatedRoute.paramMap.subscribe(params=>{
+      const id=+params.get('id');
+      this.getProduct(id);
+    });
+  }
+  
+  <button class="btn btn-outline-secondary mr-3"
+                  style="width:80px"
+                  type="button"
+                  title="Cancel your edits"
+                  [routerLink]="['/products']">
+            Cancel
+          </button>
+		  
+  this.router.navigate(['/products'])
+  
+  -------------------------------
+  
+  product-list.component.ts
+  
+  <a [routerLink]="['/products', product.id]"
+                 [queryParams]="{filterBy: listFilter, showImage: showImage}">
+                {{ product.productName }}
+              </a>
+			  
+  product-detail.component.ts
+  
+  <button class="btn btn-outline-secondary mr-3"
+                style="width:80px" [routerLink] ="['/products']" queryParamsHandling="preserve">
+          <i class="fa fa-chevron-left"></i> Back
+        </button>
+		
+		
+	product-list.component.ts
+	
+	import { ActivatedRoute} from '@angular/router'
+	
+	constructor(private productService: ProductService,
+              private activatedRoute: ActivatedRoute) { }
+			  
+ngOnInit(): void {
+    this.listFilter = this.activatedRoute.snapshot.queryParamMap.get('filterBy') ||'';
+    this.showImage = this.activatedRoute.snapshot.queryParamMap.get('showImage')==='true';
+	
+	
+--------------------------------
+---------------------------------
+product.module.ts
+
+{path:'products', component: ProductListComponent, data:{pageTitle: 'Product List'}},
+
+product-list.component.ts
+
+this.pageTitle = this.activatedRoute.snapshot.data['pageTitle'];
+------
+
+product.resolver.ts
+
+import { Injectable } from '@angular/core';
+import { Resolve, ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
+
+import { Observable, of } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
+
+import { ProductResolved } from './product';
+import { ProductService } from './product.service';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ProductResolver implements Resolve<ProductResolved> {
+
+  constructor(private productService: ProductService) { }
+
+  resolve(route: ActivatedRouteSnapshot,
+          state: RouterStateSnapshot): Observable<ProductResolved> {
+    const id = route.paramMap.get('id');
+    if (isNaN(+id)) {
+      const message = `Product id was not a number: ${id}`;
+      console.error(message);
+      return of({ product: null, error: message });
+    }
+
+    return this.productService.getProduct(+id)
+      .pipe(
+        map(product => ({ product: product })),
+        catchError(error => {
+          const message = `Retrieval error: ${error}`;
+          console.error(message);
+          return of({ product: null, error: message });
+        })
+      );
+  }
+
+}
+
+
+product.module.ts
+
+ {path:'products/:id', component: ProductDetailComponent, resolve:{ resolvedProduct: ProductResolver}},
+      {path:'products/:id/edit', component: ProductEditComponent, resolve:{ resolvedProduct: ProductResolver}}
+	  
+product-detail.component.ts
+
+import { Product, ProductResolved } from './product';
+
+ngOnInit(): void {
+    const resolvedProduct: ProductResolved = this.activatedRoute.snapshot.data['resolvedProduct'];
+    this.errorMessage = resolvedProduct.error;
+    this.onProductRetrieved(resolvedProduct.product);
+  }
+
+
+-------------------
+
+product-edit.component.ts
+
+ngOnInit(): void {
+    
+    this.activatedRoute.data.subscribe(data => {
+      const resolvedData: ProductResolved = data['resolvedProduct'];
+      this.errorMessage = resolvedData.error;
+      this.onProductRetrieved(resolvedData.product);
+    });
+  }
+  
+ --------------
+ ----------------
+ 
+ product.module.ts
+ 
+ {path:'products/:id/edit', component: ProductEditComponent, resolve:{ resolvedProduct: ProductResolver},
+      children: [
+        { path: '', redirectTo: 'info', pathMatch: 'full' },
+        { path: 'info', component: ProductEditInfoComponent },
+        { path: 'tags', component: ProductEditTagsComponent }
+      ]
+	  }
+	  
+	declarations: [
+    ProductListComponent,
+    ProductDetailComponent,
+    ProductEditComponent,
+    ProductEditInfoComponent,
+    ProductEditTagsComponent
+  ]
+  
+  product-edit.component.ts
+  
+  <div class="card-body"
+       *ngIf="product">
+    <div class="wizard">
+      <a [routerLink]="['info']">
+        Basic Information
+      </a>
+      <a [routerLink]="['tags']">
+        Search Tags
+      </a>
+    </div>
+
+    <router-outlet></router-outlet>
+
+    <div class="row mb-2">
+      <div class="col-md-4">
+        <button class="btn btn-primary mr-3"
+                style="width:80px"
+                type="button"
+                [title]="isValid() ? 'Save your entered data' : 'Disabled until the form data is valid'"
+                [disabled]="!isValid()"
+                (click)="saveProduct()">
+          Save
+        </button>
+        <button class="btn btn-outline-secondary mr-3"
+                style="width:80px"
+                type="button"
+                title="Cancel your edits"
+                [routerLink]="['/products']">
+          Cancel
+        </button>
+        <button class="btn btn-outline-warning"
+                style="width:80px"
+                type="button"
+                title="Delete this product"
+                (click)="deleteProduct()">
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  ------
+  
+  product-edit-info.component.ts
+  
+  
+  product: Product;
+  
+  ngOnInit(): void {
+    this.route.parent.data.subscribe(data => {
+      if (this.productForm) {
+        this.productForm.reset();
+      }
+
+      this.product = data['resolvedProduct'].product;
+    });
+  }
+  
+  product-edit-tags.component.ts
+  
+   product: Product;
+  
+  ngOnInit(): void {
+    this.route.parent.data.subscribe(data => {
+      if (this.productForm) {
+        this.productForm.reset();
+      }
+
+      this.product = data['resolvedProduct'].product;
+    });
+  }
+  
+  -----
+  
+  product-edit.component.ts
+  
+  private dataIsValid: { [key: string]: boolean } = {};
+  
+  isValid(path?: string): boolean {
+    this.validate();
+    if (path) {
+      return this.dataIsValid[path];
+    }
+    return (this.dataIsValid &&
+      Object.keys(this.dataIsValid).every(d => this.dataIsValid[d] === true));
+  }
+
+ saveProduct(): void {
+    if (this.isValid()) {
+	...
+	
+	
+	validate(): void {
+    // Clear the validation object
+    this.dataIsValid = {};
+
+    // 'info' tab
+    if (this.product.productName &&
+      this.product.productName.length >= 3 &&
+      this.product.productCode) {
+      this.dataIsValid['info'] = true;
+    } else {
+      this.dataIsValid['info'] = false;
+    }
+
+    // 'tags' tab
+    if (this.product.category &&
+      this.product.category.length >= 3) {
+      this.dataIsValid['tags'] = true;
+    } else {
+      this.dataIsValid['tags'] = false;
+    }
+  }
+  
+ ---------------------
+ -------------------
+ product.module.ts
+ 
+ RouterModule.forChild([
+      {
+        path: 'products',
+        children:[
+          {
+            path:'',
+            component:ProductListComponent
+          },
+          {
+            path: ':id',
+            component: ProductDetailComponent, resolve: { resolvedProduct: ProductResolver }
+          },
+          {
+            path: ':id/edit',
+            component: ProductEditComponent, resolve: { resolvedProduct: ProductResolver },
+            children: [
+              { path: '', redirectTo: 'info', pathMatch: 'full' },
+              { path: 'info', component: ProductEditInfoComponent },
+              { path: 'tags', component: ProductEditTagsComponent }
+            ]
+          }
+        ]
+        
+      }
+      
+    ])
+	
+  

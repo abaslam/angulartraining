@@ -1,0 +1,495 @@
+stackblitz
+
+import { Component, OnInit } from '@angular/core';
+import { of, from} from 'rxjs'
+
+@Component({
+  selector: 'my-app',
+  templateUrl: './app.component.html',
+  styleUrls: [ './app.component.css' ]
+})
+export class AppComponent implements OnInit {
+  name = 'Angular';
+
+  ngOnInit(){
+    of(1,3,5,7).subscribe(console.log);
+
+    of(2,4,6,8,10).subscribe(
+      item => console.log( `Received item ${item}`),
+      err=> console.log( `Error received ${err}`),
+      ()=> console.log('Completed')
+    );
+
+    from([5,10,15,20]).subscribe(
+      item => console.log( `Received item ${item}`),
+      err=> console.log( `Error received ${err}`),
+      ()=> console.log('Completed')
+    );
+  }
+}
+--------------------
+--------------------
+import { map, tap, take} from 'rxjs/operators'
+
+of(2,4,6,8,10)
+    .pipe(
+      tap(item=> console.log(`Original value ${item}`)),
+      map(item => item *2),
+      take(2)
+    )
+    .subscribe(
+      item => console.log( `Received item ${item}`),
+      err=> console.log( `Error received ${err}`),
+      ()=> console.log('Completed')
+    );
+	
+---------------------
+----------------------
+
+product-list.component.html
+
+*ngIf="products$ | async as products"
+
+product-list.component.ts
+
+import { Component, OnInit } from '@angular/core';
+
+import { Subscription, Observable } from 'rxjs';
+
+import { Product } from './product';
+import { ProductService } from './product.service';
+
+@Component({
+  templateUrl: './product-list.component.html',
+  styleUrls: ['./product-list.component.css']
+})
+export class ProductListComponent implements OnInit{
+  pageTitle = 'Product List';
+  errorMessage = '';
+  categories;
+
+  products$: Observable<Product[]>;
+
+  constructor(private productService: ProductService) { }
+
+  ngOnInit(): void {
+    this.products$ = this.productService.getProducts()
+  }
+
+  onAdd(): void {
+    console.log('Not yet implemented');
+  }
+
+  onSelected(categoryId: string): void {
+    console.log('Not yet implemented');
+  }
+}
+
+----------
+product-list.component.ts
+
+ngOnInit(): void {
+    this.products$ = this.productService.getProducts().pipe(
+      catchError(error=>{
+        this.errorMessage = error;
+        return EMPTY;
+      }));
+  }
+---------------
+product-list.component.ts
+@Component({
+  templateUrl: './product-list.component.html',
+  styleUrls: ['./product-list.component.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush
+})
+
+--------------
+
+product.service.ts
+
+products$ =this.http.get<Product[]>(this.productsUrl)
+  .pipe(
+    tap(data => console.log('Products: ', JSON.stringify(data))),
+    catchError(this.handleError)
+  );
+  
+ product-list.component.ts
+ 
+ products$=this.productService.products$.pipe(
+    catchError(error=>{
+      this.errorMessage = error;
+      return EMPTY;
+    }));
+	
+-------------
+--------------
+product.service.ts
+
+products$ =this.http.get<Product[]>(this.productsUrl)
+  .pipe(
+    map(products=>products.map(product=>({
+      ...product,
+      price: product.price * 1.5,
+      searchKey: [product.productName]
+    }) as Product)),
+    tap(data => console.log('Products: ', JSON.stringify(data))),
+    catchError(this.handleError)
+  );
+  
+ -------------------
+ --------------------
+ 
+ product.ts
+ 
+ category?: string;
+ 
+ product-category.service.ts
+ 
+ productCategories$ = this.http.get<ProductCategory[]>(this.productCategoriesUrl).pipe(
+    tap(data=> console.log('Categories', JSON.stringify(data))),
+    catchError(this.handleError)
+  )
+  
+  product.service.ts
+  
+  products$ =this.http.get<Product[]>(this.productsUrl)
+  .pipe(    
+    tap(data => console.log('Products: ', JSON.stringify(data))),
+    catchError(this.handleError)
+  );
+
+  productsWithCategory$ = combineLatest([
+    this.products$,
+    this.categoryService.productCategories$
+  ])
+  .pipe(
+    map(([products,categories])=>products.map(product=>({
+      ...product,
+      price: product.price * 1.5,
+      category: categories.find(c=>c.id=== product.categoryId).name,
+      searchKey: [product.productName]
+    }) as Product)),
+  )
+  
+  product-list.component.ts
+  
+  products$=this.productService.productsWithCategory$.pipe(
+    catchError(error=>{
+      this.errorMessage = error;
+      return EMPTY;
+    }));
+	
+	product-list.component.html
+	
+------------------------
+----------------------
+
+product-list.component.ts
+
+private productCategoryService: ProductCategoryService
+
+categories$ = this.productCategoryService.productCategories$.pipe(
+    catchError(error=>{
+      this.errorMessage = error;
+      return EMPTY;
+    }));
+	
+selectedCategoryId = 1;
+  products$ = this.productService.productsWithCategory$.pipe(
+    map(products => products.filter(p => this.selectedCategoryId ? p.categoryId === this.selectedCategoryId : true)),
+    catchError(error => {
+      this.errorMessage = error;
+      return EMPTY;
+    }));
+
+onSelected(categoryId: string): void {
+    this.selectedCategoryId = +categoryId;
+  }
+  
+product-list.component.html
+
+ <option *ngFor="let category of categories$ | async"
+                    [value]="category.id">{{ category.name }}</option>
+-----------------------------
+
+product-list.component.ts
+
+private categorySelectedSubject = new Subject<number>();
+
+categorySelectedAction = this.categorySelectedSubject.asObservable();
+
+  products$ = combineLatest([
+    this.productService.productsWithCategory$,
+    this.categorySelectedAction
+  ])
+  .pipe(
+    map(([products, selectedCategoryId]) => products.filter(p => selectedCategoryId ? p.categoryId === selectedCategoryId : true)),
+    catchError(error => {
+      this.errorMessage = error;
+      return EMPTY;
+    }));
+	
+	
+	onSelected(categoryId: string): void {
+    this.categorySelectedSubject.next(+categoryId);
+  }
+  
+ ------------------
+ 
+product-list.component.ts
+
+ this.categorySelectedAction.pipe(
+      startWith(0)
+    )
+	
+--------
+
+product-list.component.ts
+
+private categorySelectedSubject = new BehaviorSubject<number>(0);
+
+this.categorySelectedAction
+
+-------------------
+
+product-list-alt.component.ts
+
+products$=this.productService.productsWithCategory$.pipe(
+    catchError(error=>{
+      this.errorMessage = error;
+      return EMPTY;
+    }));
+	
+	product-list-alt.component.html
+	
+	 {{ product.productName }} ({{ product.category }})
+------------------
+
+product.service.ts
+
+selectedProduct$ = this.productsWithCategory$.pipe(
+    map(products=> products.find(p=> p.id==5)),
+    tap(product=> console.log(product))
+  );
+  
+  product-detail.component.ts
+  
+  changeDetection: ChangeDetectionStrategy.OnPush
+  
+  product$ = this.productService.selectedProduct$.pipe(
+    catchError(err=>{
+      this.errorMessage =err;
+      return EMPTY;
+    }));
+	
+	product-detail.component.html
+	
+	*ngIf="product$ | async as product">
+	
+	--------------------
+	
+	product.service.ts
+	
+	private productSelectedSubject = new BehaviorSubject<number>(0);
+    productSelectedAction$ = this.productSelectedSubject.asObservable();
+	
+	selectedProduct$ = combineLatest([
+    this.productsWithCategory$,
+    this.productSelectedAction$
+  ]).pipe(
+    map(
+      ([products, selectedproductId]) => products.find(p => p.id == selectedproductId)),
+    tap(product => console.log(product))
+  );
+  
+  selectedProductChanged(productId: number){
+    this.productSelectedSubject.next(productId);
+  }
+  
+  product-list-alt.component.ts
+  
+  selectedProduct$ = this.productService.selectedProduct$;
+  onSelected(productId: number): void {
+    this.productService.selectedProductChanged(productId);
+  }
+  
+  product-list-alt.component.html
+  
+   [ngClass]="{'active': product?.id === (selectedProduct$ |async)?.id}"
+   -------------------
+   
+   product-list-alt.component.ts
+   
+   private errorMessageSubject = new Subject<string>();
+  errorMessageAction$ = this.errorMessageSubject.asObservable();
+  
+  this.errorMessageSubject.next(error);
+  
+  -----------------
+  
+  product.service.ts
+  
+  private productInsertedSubject = new Subject<Product>()
+  productInsertedAction$ = this.productInsertedSubject.asObservable();
+
+  productWithAdd$ = merge(
+    this.productsWithCategory$,
+    this.productInsertedSubject
+  ).pipe(
+    scan((accumulator:Product[], value: Product)=> [...accumulator, value])
+  )
+  
+  productAdded(newProduct?: Product){
+    this.productInsertedSubject.next(this.fakeProduct());
+  }
+  
+  product-list.component.ts
+  
+  products$ = combineLatest([
+    this.productService.productWithAdd$$,
+    this.categorySelectedAction
+  ])
+  
+  onAdd(): void {
+    this.productService.productAdded();
+  }
+-----------------------
+-----------------------
+product-category.service.ts
+
+productCategories$ = this.http.get<ProductCategory[]>(this.productCategoriesUrl).pipe(
+    tap(data=> console.log('Categories', JSON.stringify(data))),
+    shareReplay(1),
+    catchError(this.handleError)
+  )
+  
+  
+  product.service.ts
+  
+  shareReplay(1)
+  
+  -------------------------------
+  ------------------------------
+  
+  supplier.service.ts
+  
+  suppliersWithConcatMap$ = of(1,5,8).pipe(
+    tap(id=> console.log("concatMap source Observable ", id)),
+    concatMap(id=> this.http.get<Supplier>(`${this.suppliersUrl}/${id}`))
+  );
+  
+  constructor(private http: HttpClient) { 
+    this.suppliersWithConcatMap$.subscribe(s=> console.log("concatMap result ", s))
+  }
+  
+  -----------------
+  supplier.service.ts
+  
+  suppliersWithMergeMap$ = of(1,5,8).pipe(
+    tap(id=> console.log("mergeMap source Observable ", id)),
+    mergeMap(id=> this.http.get<Supplier>(`${this.suppliersUrl}/${id}`))
+  );
+  
+  this.suppliersWithMergeMap$.subscribe(s=> console.log("mergeMap result ", s))
+
+-------------------------
+
+	supplier.service.ts
+	
+	suppliersWithSwitchMap$ = of(1,5,8).pipe(
+    tap(id=> console.log("switchMap source Observable ", id)),
+    switchMap(id=> this.http.get<Supplier>(`${this.suppliersUrl}/${id}`))
+  );
+  
+  this.suppliersWithSwitchMap$.subscribe(s=> console.log("switchMap result ", s))
+  
+  ----------------
+  --------------------
+  
+  supplier.service.ts
+  
+  suppliers$ = this.http.get<Supplier[]>(`${this.suppliersUrl}`).pipe(
+    tap(s=> console.log('Suppliers', JSON.stringify(s))),
+    shareReplay(1),
+    catchError(this.handleError)
+  )
+  
+  product.service.ts
+  
+  selectedProductSuppliers$ = combineLatest([
+    this.selectedProduct$,
+    this.supplierService.suppliers$
+  ]).pipe(
+    map(([selectedProduct, suppliers])=> suppliers.filter(s=> selectedProduct.supplierIds.includes(s.id)))
+  )
+  
+  product-detail.component.ts
+  
+  productSuppliers$ = this.productService.selectedProductSuppliers$.pipe(
+      catchError(err=>{
+        this.errorMessage =err;
+        return EMPTY;
+      }));
+  
+  product-detail.component.html
+  
+  *ngIf="productSuppliers$ | async as productSuppliers"
+  
+  --------------
+  product.service.ts
+  
+  selectedProductSuppliers$ = this.selectedProduct$.pipe(
+     filter(product=> Boolean(product)),
+     mergeMap(product=>
+      from(product.supplierIds)
+      .pipe(
+        mergeMap(id=> this.http.get<Supplier>(`${this.suppliersUrl}/${id}`)),
+        toArray()
+      )
+   ));
+   
+   
+  --------------
+  product.service.ts
+  
+  selectedProductSuppliers$ = this.selectedProduct$.pipe(
+     filter(product=> Boolean(product)),
+     switchMap(product=>
+      from(product.supplierIds)
+      .pipe(
+        mergeMap(id=> this.http.get<Supplier>(`${this.suppliersUrl}/${id}`)),
+        toArray()
+      )
+   ));
+   
+   ----
+   
+  product-detail.component.ts
+  
+  pageTitle$ = this.product$.pipe(
+      map((p: Product)=> p ? `Product Details for: ${p.productName}`: null )
+    );
+	
+	product-detail.component.html
+	
+	<div class="card-header" *ngIf="pageTitle$ | async as pageTitle">
+    {{pageTitle}}
+  </div>
+  
+  -----
+  
+  product-detail.component.ts
+  
+  vm$ = combineLatest([
+        this.product$,
+        this.pageTitle$,
+        this.productSuppliers$
+      ]).pipe(
+        filter(([product])=> Boolean(product)),
+        map(([product, pageTitle, productSuppliers])=>({product, pageTitle, productSuppliers}))
+      )
+	  
+	  product-detail.component.html
+	  
+	  <div class="card"
+     *ngIf="vm$ | async as vm">
